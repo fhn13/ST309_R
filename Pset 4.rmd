@@ -1,0 +1,89 @@
+---
+output: reprex::reprex_document
+knit: reprex::reprex_render
+---
+
+Importing college.txt and setup
+
+```{r}
+
+college = read.table("college.txt", header = TRUE)
+college$Elite=as.factor(college$Elite)
+college$Private=as.factor(college$Private)
+attach(college)
+summary(college)
+
+```
+
+### Q1 a
+
+First, a decision tree is created, excluding Top10perc.
+```{r}
+library(tree)
+Elite_tree = tree(Elite ~ . - Top10perc, data = college)
+summary(Elite_tree)
+
+plot(Elite_tree, main = "Elite Decision Tree")
+text(Elite_tree, pretty = 0)
+```
+The error rate is ~ 0.9%, which is very low.
+### Q1 b
+
+Using a set seed for reproducible results, the new tree is trained on 500 random observations 
+from the data set and tested against the remaining observations.
+```{r}
+set.seed(1)
+train_set = sample(1:nrow(college), 500)
+test_set = college[-train_set, ]
+New_Elite_tree = tree(Elite ~ . - Top10perc, college, subset = train_set)
+summary(New_Elite_tree)
+```
+
+```{r}
+test_predictions = predict(New_Elite_tree, test_set, type = "class")
+table(test_predictions, test_set$Elite)
+misclassified = (7+8)/(242+8+7+20)
+print (misclassified)
+```
+15 observations are misclassified, giving an error rate of ~5.4%, higher than when the tree was tested 
+on all the data used for fitting - which caused overfitting. This is a more realistic error rate. 
+
+### Q1 c
+```{r}
+elite_logistic = glm(Elite ~  Top25perc + P.Undergrad + Expend + S.F.Ratio + perc.alumni + Room.Board + Outstate + Apps, college, family = "binomial", subset = train_set)
+summary(elite_logistic)
+```
+Remove non-significant variables: in this case, 'Apps' has the highest P-value.
+
+```{r}
+elite_logistic = glm(Elite ~  Top25perc + P.Undergrad + Expend + S.F.Ratio + perc.alumni + Room.Board + Outstate, college, family = "binomial", subset = train_set)
+summary(elite_logistic)
+```
+Remove non-significant variables: in this case, 'S.F.Ratio' has the highest p-value.
+
+```{r}
+elite_logistic = glm(Elite ~  Top25perc + P.Undergrad + Expend + perc.alumni + Room.Board + Outstate, college, family = "binomial", subset = train_set)
+summary(elite_logistic)
+```
+Remove non-significant variables: in this case, 'Outstate' has the highest p-value.
+
+```{r}
+elite_logistic = glm(Elite ~  Top25perc + P.Undergrad + Room.Board + Expend + perc.alumni, college, family = "binomial", subset = train_set)
+summary(elite_logistic)
+```
+```{r}
+predicted_logistic = predict(elite_logistic, data = college[-train_set,], type = "response")
+summary(predicted_logistic)
+```
+When using the testing data in the logistic regression, on average, a college has an estimated 10% probability of being elite.
+
+```{r}
+predicted_elite = rep("No", 277)
+predicted_elite[predicted_logistic > 0.5] = "Yes"
+table(predicted_elite, test_set$Elite, deparse.level = 2)
+```
+
+```{r}
+length(predicted_logistic)
+```
+```
