@@ -1,13 +1,12 @@
 ---
-output: reprex::reprex_document
-knit: reprex::reprex_render
+output: pdf_document
 ---
 
 Importing college.txt and setup
 
 ```{r}
 
-college = read.table("college.txt", header = TRUE)
+college = read.table("college.txt")
 college$Elite=as.factor(college$Elite)
 college$Private=as.factor(college$Private)
 attach(college)
@@ -15,80 +14,266 @@ summary(college)
 
 ```
 
-### Q1 a
+## Q1 a)
 
 First, a decision tree is created, excluding Top10perc.
 ```{r}
 library(tree)
-Elite_tree = tree(Elite ~ . - Top10perc, data = college)
-summary(Elite_tree)
+tree_elite = tree(Elite ~ . - Top10perc, data = college)
+summary(tree_elite)
 
-plot(Elite_tree, main = "Elite Decision Tree")
-text(Elite_tree, pretty = 0)
+plot(tree_elite, main = "Decision Tree for Elites")
+text(tree_elite, pretty = 0)
 ```
-The error rate is ~ 0.9%, which is very low.
-### Q1 b
+
+
+## Q1 b)
 
 Using a set seed for reproducible results, the new tree is trained on 500 random observations 
 from the data set and tested against the remaining observations.
+
 ```{r}
 set.seed(1)
-train_set = sample(1:nrow(college), 500)
-test_set = college[-train_set, ]
-New_Elite_tree = tree(Elite ~ . - Top10perc, college, subset = train_set)
-summary(New_Elite_tree)
+training_set = sample(1:nrow(college), 500)
+test_set = college[-training_set,]
+new_tree_elite = tree(Elite ~ . - Top10perc, college, subset = training_set)
+summary(new_tree_elite)
 ```
 
 ```{r}
-test_predictions = predict(New_Elite_tree, test_set, type = "class")
-table(test_predictions, test_set$Elite)
-misclassified = (7+8)/(242+8+7+20)
-print (misclassified)
+test_predictions = predict(new_tree_elite, test_set, type = "class")
+table = table(test_predictions, test_set$Elite)
+print(table)
+print ((table[1, 2] + table[2, 1])/sum(table))
 ```
 15 observations are misclassified, giving an error rate of ~5.4%, higher than when the tree was tested 
 on all the data used for fitting - which caused overfitting. This is a more realistic error rate. 
 
-### Q1 c
+## Q1 c)
 ```{r}
-elite_logistic = glm(Elite ~  Top25perc + P.Undergrad + Expend + S.F.Ratio + perc.alumni + Room.Board + Outstate + Apps, college, family = "binomial", subset = train_set)
-summary(elite_logistic)
+logistic_elite = glm(Elite ~  Top25perc + S.F.Ratio + Expend + P.Undergrad + perc.alumni + Room.Board
+ + Outstate + Apps, data = college, family = binomial, subset = training_set)
+summary(logistic_elite)
 ```
 Remove non-significant variables: in this case, 'Apps' has the highest P-value.
 
 ```{r}
-elite_logistic = glm(Elite ~  Top25perc + P.Undergrad + Expend + S.F.Ratio + perc.alumni + Room.Board + Outstate, college, family = "binomial", subset = train_set)
-summary(elite_logistic)
+logistic_elite = glm(Elite ~  Top25perc + S.F.Ratio + Expend + P.Undergrad + perc.alumni + Room.Board
+ + Outstate, data = college, family = binomial, subset = training_set)
+summary(logistic_elite)
 ```
 Remove non-significant variables: in this case, 'S.F.Ratio' has the highest p-value.
 
 ```{r}
-elite_logistic = glm(Elite ~  Top25perc + P.Undergrad + Expend + perc.alumni + Room.Board + Outstate, college, family = "binomial", subset = train_set)
-summary(elite_logistic)
+logistic_elite = glm(Elite ~  Top25perc + Expend + P.Undergrad + perc.alumni + Room.Board
+ + Outstate, data = college, family = binomial, subset = training_set)
+summary(logistic_elite)
 ```
 Remove non-significant variables: in this case, 'Outstate' has the highest p-value.
 
 ```{r}
-elite_logistic = glm(Elite ~  Top25perc + P.Undergrad + Room.Board + Expend + perc.alumni, college, family = "binomial", subset = train_set)
-summary(elite_logistic)
+logistic_elite = glm(Elite ~  Top25perc + Expend + P.Undergrad + perc.alumni + Room.Board, 
+data = college, family = binomial, subset = training_set)
+summary(logistic_elite)
 ```
+
 ```{r}
-predicted_logistic = predict(elite_logistic, data = college[-train_set,], type = "response")
+predicted_logistic = predict(logistic_elite, newdata = test_set, type = "response")
 summary(predicted_logistic)
 ```
-When using the testing data in the logistic regression, on average, a college has an estimated 10% probability of being elite.
+When using the testing data in the logistic regression, on average, a college has an estimated ~8.75% probability of being elite.
 
 ```{r}
 predicted_elite = rep("No", 277)
 predicted_elite[predicted_logistic > 0.5] = "Yes"
-table(predicted_elite, test_set$Elite, deparse.level = 2)
+table = table(predicted_elite, test_set$Elite)
+print(table)
+print((table[1, 2] + table[2, 1])/(sum(table)))
 ```
+Using the logistic regression, the error rate is ~2.53%, which is lower than the decision tree and is more accurate in this case.
+
+
+
+## Q2
+
+Importing the package and viewing data summary
+```{r}
+library(ISLR)
+View(Auto)
+?Auto
+summary(Auto)
+```
+
+## Q2 a)
+
+```{r}
+pairs(Auto[,1:8])
+```
+
+## Q2 b)
+
+```{r}
+cor(Auto[,1:8])
+```
+
+## Q2 c)
+
+```{r}
+mpg_regression = lm(mpg ~ . -name, data = Auto)
+summary(mpg_regression)
+```
+
+> ##### i)
+> Yes, there is a relationship between the predidctors and the response. When testing the null hypothesis that all regression coefficients are 0, the F-statistic is returned - with a value of 252.4, suggesting that the overall regression is statistically significant. This is supported by the low p-value.
 
 > ##### ii)
-```{r}
-length(predicted_logistic)
-```
-```
-> The coefficient on x1 is 1.8250, while the coefficient on x2 is 0.4190. THe coefficient on x2 is not significant, while the x1 coefficient is. B0 confidence intervals = [1.924, 2.730]. B1 confidence intervals = [0.898, 2.752]. B2 confidence intervals = [-0.613, 1.451].
+> The predictors with a statistically significant relationship are the predictors with low p-values, with < 0.05 being statistically significant. These predictors are: displacement, weight, year and origin. It appears there is a high probability that these regressors affect mpg. These results are supported by the pairs() plot produced earlier, with the exception of horsepower which appears to correlate with mpg in the plot. The lack of statistical significance of acceleration, however, is also supported by the plot.
 
-##### iii)
+> ##### iii)
+> The coefficients for year and origin are both positive, suggesting a positive relationship between these regressors and mpg. In the case of the year coefficient, an increase in the year results in a ~0.75 increase in mpg.  Intuitively, this is plausible; later years indicate newer cars and more time for better technology to develop, resulting in efficient cars with higher miles per gallon. The coefficient of origin is ~1.43, almost double the coefficient on year. This suggests the origin of the car has a higher impact on mpg, with American cars being the least efficient, followed by European and Japanese cars. 
+
+> ##### iv)
+> The insignificant predictors are cylinders, horsepower and acceleration. The first possbility would be to remove the insignificant predictors. This can reduce overfitting and improve generalisability when applying the model to unseen data. This must be done one predictor at a time, in order to observe if previously-insignificant variables become significant. For example, from the plot it can be seen that horsepower and acceleration are highly correlated, so removing one of these predictors can reduce multicollinearity and increase significance, as well as reduce standard error. Another possibility would be to create an interaction term between these two correlated regressors in order to capture the joint effect on mpg, which would avoid omitted variable bias. 
+
+## Q2 d)
+
 ```{r}
+par(mfrow=c(2,2))
+plot(mpg_regression)
+```
+From the diagnosis plots, we see the following:
+- The Residuals vs Fitted plot curves slightly, suggesting that the relationship between the preditors and the response contains some non-linearity. Residuals are higher for smaller fitted values, decreasing as fitted values approach 20, then increasing again.
+- The Q Q residuals plot shows most residuals have a normal distribution, with the exception of a few outliers towards the end of the graph.
+- The Scale-Location plot shows some heteroskedasticity, with the same outliers pulling the line upwards due to much higher variance.
+- The Residuals vs Leverage plot shows clear leverage from point 14, suggesting significant influence on the regression and coefficients.
+
+## Q2 e)
+
+```{r}
+pairs(data.frame(log(Auto$mpg),Auto[,-c(1,9)]))
+cor(Auto$mpg, Auto$weight)
+cor((log(Auto$mpg)),Auto$weight)
+```
+Overall, correlations appear to be stronger between log mpg and most variables as seen in the plot. For example, the correlation between log mpg and weight is higher than when mpg is not logged. Log transformations can be more appropriate and result in higher correlation, especially when the relationship was not completely linear to begin with.
+
+## Q3 a) i)
+
+```{r}
+set.seed(3)
+x1=runif(150) # 150 U(0,1) random numbers
+x2=0.5*runif(150)+rnorm(150)/5 # rnorm(150) returns 150 N(0,1) random numbers
+y=2+2*x1+x2+rnorm(150)
+```
+
+B0 = 2, B1 = 2, B2 = 1, E~N(0,1)
+
+
+## Q3 a) ii)
+```{r}
+ytrain = y[1:100]; ytest=y[101:150] # splits y into training and test sets, with 100 and 50 observations respectively
+x = data.frame(x1, x2); x.train=x[1:100,]; x.test=x[101:150,]
+m1 = lm(ytrain~x1+x2, data=x.train)
+summary(m1)
+confint.lm(m1)
+```
+
+The coefficient on x1 is 2.0503, while the coefficient on x2 is 1.1604. Both coefficients are significant, with very low p-values. B0 confidence intervals = [1.459, 2.354]. B1 confidence intervals = [1.304, 2.797]. B2 confidence intervals = [0.346, 1.975].
+
+
+## Q3 b) iii)
+```{r}
+predict_y = predict(m1, x.test)
+summary(predict_y)
+squared_difference = (predict_y - ytest)^2
+print (sqrt(mean(squared_difference)))
+```
+The rMSPE is ~1.080.
+
+
+## Q3 b) i)
+
+```{r}
+set.seed(3)
+x1=runif(150)
+x2=0.5*x1+rnorm(150)/5
+y=2+2*x1+x2+rnorm(150)
+print (cor(x1, x2))
+```
+The correlation between x1 and x2 is 0.584.
+
+
+## Q3 b) ii)
+
+```{r}
+ytrain = y[1:100]; ytest=y[101:150] # splits y into training and test sets, with 100 and 50 observations respectively
+x = data.frame(x1, x2); x.train=x[1:100,]; x.test=x[101:150,]
+m1 = lm(ytrain~x1+x2, data=x.train)
+summary(m1)
+confint.lm(m1)
+```
+The coefficient on x1 is 1.8250, while the coefficient on x2 is 0.4190. THe coefficient on x2 is not significant, while the x1 coefficient is. B0 confidence intervals = [1.924, 2.730]. B1 confidence intervals = [0.898, 2.752]. B2 confidence intervals = [-0.613, 1.451].
+
+```{r}
+predict_y = predict(m1, x.test)
+summary(predict_y)
+squared_difference = (predict_y - ytest)^2
+print(sqrt(mean(squared_difference)))
+```
+The rMSPE is 1.090.
+
+
+## Q3 b) iii)
+In the second model run, the coefficient on x2 is not significant while it was in the first model run. x1 and x2 are highly correlated, as corr = 0.584. The model is unable to accurately differentiate between the effects of x1 and x2 on y, and as such the coefficient on x2 becomes statistically insignificant; this is also supported by the larger confidence intervals of the second regression. The new rMSPE, 1.09, is fairly similar to the first regression (rMSPE =  1.07953), suggesting that the difference between actual and predicted values is roughly the same for both regressions.
+
+
+## Q3 b) iv)
+
+```{r}
+m1 = lm(ytrain~x1, data=x.train)
+summary(m1)
+```
+The coefficient on x1 is 2.0641 and is statistically significant. 
+```{r}
+predict_y = predict(m1, x.test)
+summary(predict_y)
+squared_difference = (predict_y - ytest)^2
+print (sqrt(mean(squared_difference)))
+```
+The rMSPE is now 1.116, which is actually slightly higher than the previous regressions. The coefficient on x1, 2.0641, is higher than the coefficient on x1 (1.8250) when the regression with x2 was also run. This is evidence of multicollinearity, given that the effect of x1 is higher when x2 is not included in the regression. The coefficient on x1 is able to accurately capture the effect of x1 on y, without the redundancy of a correlated regressor. Finally, the R^2 is reduced, from 0.2558 in the previous regression to 0.2508. This is expected, as removing a regressor will remove some predictive power of the regression, with a lower proportion of variance being accounted for by the predictors; however, as the reduction is so low (only 0.005) it shows that x2 is very insignificant in predicting y.
+
+
+## Q3 c) i)
+```{r}
+set.seed(3)
+x1=runif(150)
+epsilon=rnorm(150)
+x2=0.5*runif(150)+epsilon/5
+y=2+2*x1+x2+epsilon
+cor(x2, epsilon)
+```
+The correlation between x2 and the error is 0.822.
+
+
+## Q3 c) ii)
+
+```{r}
+ytrain = y[1:100]; ytest=y[101:150] # splits y into training and test sets, with 100 and 50 observations respectively
+x = data.frame(x1, x2); x.train=x[1:100,]; x.test=x[101:150,]
+m1 = lm(ytrain~x1+x2, data=x.train)
+summary(m1)
+confint.lm(m1)
+```
+The coefficient on x1 is 1.886, while the coefficient on x2 is 4.411. The coefficients on x1 and x2 are both statistically significant. B0 confidence interval = [0.944, 1.450]. B1 confidence interval = [1.469, 2.304]. B2 confidence interval = [3.911, 4.912].
+
+```{r}
+predict_y = predict(m1, x.test)
+summary(predict_y)
+squared_difference = (predict_y - ytest)^2
+print (sqrt(mean(squared_difference)))
+```
+The rMPSE is 0.641.
+
+
+## Q3) c) iii)
+B1 and B2 are both statistically significant. The R^2 is high, at 0.8228, suggesting the predictors capture most of the variance in y. rMSPE is also lower than previously, suggesting the model's estimates are accurate to the true values. This occurs due to endogeneity, causing biased estimates. Additionally, the confidence interval of B2 does not include its true value within the range due to the correlation between B2 and the error term.
+
