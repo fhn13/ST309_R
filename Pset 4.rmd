@@ -83,7 +83,12 @@ predicted_elite[predicted_logistic > 0.5] = "Yes"
 table(predicted_elite, test_set$Elite, deparse.level = 2)
 ```
 
+> ##### ii)
 ```{r}
 length(predicted_logistic)
 ```
 ```
+> The coefficient on x1 is 1.8250, while the coefficient on x2 is 0.4190. THe coefficient on x2 is not significant, while the x1 coefficient is. B0 confidence intervals = [1.924, 2.730]. B1 confidence intervals = [0.898, 2.752]. B2 confidence intervals = [-0.613, 1.451].
+
+##### iii)
+```{r}
